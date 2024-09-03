@@ -2,11 +2,11 @@
 "Hey everyone! Today, I'm going to walk you through how to set up a Telegram bot from scratch. We’ll cover everything from getting your Telegram API ID and hash to installing and running the bot on your computer. Let’s get started!"
 
 **[Step 1: Install Node.js]**
-"First things first, you need to make sure you have Node.js installed on your computer. If you don't have it installed yet, don’t worry! I've put a link in the description where you can download and install Node.js."
+"First things first, you need to make sure you have Node.js installed on your computer. If you don't have it installed yet, don’t worry! [download and install Node.js](https://nodejs.org/en/download/package-manager)."
 
 **[Step 2: Get Your Telegram API ID and Hash]**
 "Now, let's get our Telegram API ID and hash. These are essential for creating the session for the bot."
-1. "Go to [https://my.telegram.org](https://my.telegram.org) (link in the description)."
+1. "Go to [https://my.telegram.org](https://my.telegram.org)"
 2. "Log in with your phone number, and enter the code sent to your phone."
 3. "Once logged in, click on 'API development tools'."
 4. "Create a new application by filling out the form. The required fields are 'App title' and 'Short name'."

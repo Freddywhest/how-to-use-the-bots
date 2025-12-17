@@ -29,19 +29,17 @@ jobs:
 
       - name: Build universal libssh2
         run: |
-          cd Libssh2Prebuild
           chmod +x script/*.sh
-          # Set required environment variables for build-libssh2.sh
           export ROOT_PATH=$(pwd)
           export LIBSSH_SOURCE=$(pwd)/libssh2-${LIBSSH2_VERSION}
           export BUILT_PRODUCTS_DIR=$(pwd)/build/macos/universal
           export ARCHS="arm64 x86_64"
           export PLATFORM="MacOSX"
+          export EFFECTIVE_PLATFORM_NAME=""
           export SDK_PLATFORM="macosx"
           export MIN_VERSION="12.0"
           export BUILD_THREADS=$(sysctl -n hw.ncpu)
           mkdir -p $BUILT_PRODUCTS_DIR
-          # Run the build script
           script/build-libssh2.sh
 
       - name: Upload universal libssh2 artifacts

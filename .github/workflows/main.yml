@@ -26,7 +26,7 @@ jobs:
       # 3. Clone Libssh2Prebuild repo
       - name: Download Libssh2Prebuild
         run: |
-          git clone https://github.com/DimaRU/Libssh2Prebuild.git
+          https://github.com/Freddywhest/Libssh2Prebuild.git
           cd Libssh2Prebuild
           git checkout master
 

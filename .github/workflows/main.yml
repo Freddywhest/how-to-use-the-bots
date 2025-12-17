@@ -2,7 +2,8 @@ name: Build libssh2 Universal macOS
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -13,93 +14,32 @@ jobs:
       LIBSSH2_VERSION: "1.11.1"
 
     steps:
+      # 1. Checkout your repo
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # 2. Install required dependencies
       - name: Install dependencies
         run: |
-          brew install cmake ninja
+          brew install cmake ninja perl
 
-      - name: Create build directories
+      # 3. Download Libssh2Prebuild repo
+      - name: Download Libssh2Prebuild
         run: |
-          mkdir -p build-arm64 build-x86_64 openssl-arm64 openssl-x86_64
+          git clone https://github.com/DimaRU/Libssh2Prebuild.git
+          cd Libssh2Prebuild
+          git checkout main
 
-      ###########################################
-      # Build OpenSSL for ARM64
-      ###########################################
-      - name: Build OpenSSL arm64
+      # 4. Build libssh2 for macOS (universal: arm64 + x86_64)
+      - name: Build universal libssh2
+        working-directory: Libssh2Prebuild
         run: |
-          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz
-          tar xzf openssl-${OPENSSL_VERSION}.tar.gz
-          cd openssl-${OPENSSL_VERSION}
-          chmod +x Configure
-          # Disable apps and tests completely
-          ./Configure darwin64-arm64-cc no-shared no-dso no-tests no-ssl2 no-ssl3 no-comp no-asm no-apps \
-            --prefix=$(pwd)/../../openssl-arm64
-          make -j$(sysctl -n hw.ncpu) install_sw
-          cd ..
+          chmod +x build-macos.sh
+          ./build-macos.sh
 
-
-      ###########################################
-      # Build OpenSSL for x86_64
-      ###########################################
-      - name: Build OpenSSL x86_64
-        run: |
-          cd openssl-${OPENSSL_VERSION}
-          chmod +x Configure
-          arch -x86_64 ./Configure darwin64-x86_64-cc no-shared no-dso no-tests no-ssl2 no-ssl3 no-comp no-asm no-apps \
-            --prefix=$(pwd)/../../openssl-x86_64
-          arch -x86_64 make -j$(sysctl -n hw.ncpu) install_sw
-          cd ..
-
-
-      ###########################################
-      # Build libssh2 for ARM64
-      ###########################################
-      - name: Build libssh2 arm64
-        run: |
-          curl -LO https://libssh2.org/download/libssh2-${LIBSSH2_VERSION}.tar.gz
-          tar xzf libssh2-${LIBSSH2_VERSION}.tar.gz
-          cd libssh2-${LIBSSH2_VERSION}
-          mkdir -p build-arm64 && cd build-arm64
-          cmake ../ \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DOPENSSL_ROOT_DIR=../../openssl-arm64
-          cmake --build . --config Release
-          cd ../..
-
-      ###########################################
-      # Build libssh2 for x86_64
-      ###########################################
-      - name: Build libssh2 x86_64
-        run: |
-          cd libssh2-${LIBSSH2_VERSION}
-          mkdir -p build-x86_64 && cd build-x86_64
-          cmake ../ \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DOPENSSL_ROOT_DIR=../../openssl-x86_64
-          cmake --build . --config Release
-          cd ../..
-
-      ###########################################
-      # Create universal libssh2
-      ###########################################
-      - name: Create universal libssh2
-        run: |
-          mkdir -p universal
-          lipo -create \
-            libssh2-${LIBSSH2_VERSION}/build-arm64/libssh2.a \
-            libssh2-${LIBSSH2_VERSION}/build-x86_64/libssh2.a \
-            -output universal/libssh2.a
-          cp -R libssh2-${LIBSSH2_VERSION}/include universal/
-
-      ###########################################
-      # Upload artifacts
-      ###########################################
-      - name: Upload universal libssh2
+      # 5. Upload universal libssh2 and headers as artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: libssh2-universal
-          path: universal
+          path: Libssh2Prebuild/build/macos/universal

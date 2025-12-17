@@ -28,7 +28,7 @@ jobs:
         run: |
           git clone https://github.com/DimaRU/Libssh2Prebuild.git
           cd Libssh2Prebuild
-          git checkout main
+          git checkout master
 
       # 4. Build libssh2 for macOS (universal: arm64 + x86_64)
       - name: Build universal libssh2

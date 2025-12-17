@@ -76,7 +76,7 @@ jobs:
         run: |
           cd libssh2-${LIBSSH2_VERSION}
           mkdir -p build-x86_64 && cd build-x86_64
-          arch -x86_64 cmake ../ \
+          cmake ../ \
             -DBUILD_SHARED_LIBS=OFF \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
             -DOPENSSL_ROOT_DIR=../../openssl-x86_64

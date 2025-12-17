@@ -38,14 +38,19 @@ jobs:
           make install_sw
           cd ..
 
-      ###########################################
+       ###########################################
       # Build OpenSSL for x86_64
       ###########################################
       - name: Build OpenSSL x86_64
         run: |
-          arch -x86_64 ./Configure darwin64-x86_64-cc no-shared no-dso no-tests no-ssl2 no-ssl3 no-comp --prefix=$(pwd)/openssl-x86_64
+          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz
+          tar xzf openssl-${OPENSSL_VERSION}.tar.gz
+          cd openssl-${OPENSSL_VERSION}
+          chmod +x Configure
+          arch -x86_64 ./Configure darwin64-x86_64-cc no-shared no-dso no-tests no-ssl2 no-ssl3 no-comp --prefix=$(pwd)/../../openssl-x86_64
           make -j$(sysctl -n hw.ncpu)
           make install_sw
+          cd ..
 
       ###########################################
       # Build libssh2 for arm64

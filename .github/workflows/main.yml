@@ -1,64 +1,80 @@
-name: Build libssh2 for RNSSHClient
+name: Build libssh2 Universal Library
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build-macos:
+  build:
     runs-on: macos-latest
     env:
       OPENSSL_VERSION: 3.2.0
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      # Download and extract OpenSSL
-      - name: Download OpenSSL
+      - name: Install dependencies
         run: |
+          brew update
+          brew install cmake pkg-config
+
+      - name: Download and build OpenSSL for arm64
+        run: |
+          mkdir -p openssl-arm64
           curl -LO https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
           tar xzf openssl-${OPENSSL_VERSION}.tar.gz
-          mv openssl-${OPENSSL_VERSION} openssl
+          cd openssl-${OPENSSL_VERSION}
+          ./Configure darwin64-arm64-cc no-shared no-dso no-tests --prefix=$(pwd)/../openssl-arm64
+          make -j$(sysctl -n hw.ncpu)
+          make install_sw
 
-      # Clone libssh2
-      - name: Clone libssh2
+      - name: Download and build OpenSSL for x86_64
         run: |
-          git clone https://github.com/libssh2/libssh2.git
-          cd libssh2
+          mkdir -p openssl-x86_64
+          curl -LO https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
+          tar xzf openssl-${OPENSSL_VERSION}.tar.gz
+          cd openssl-${OPENSSL_VERSION}
+          arch -x86_64 ./Configure darwin64-x86_64-cc no-shared no-dso no-tests --prefix=$(pwd)/../openssl-x86_64
+          make -j$(sysctl -n hw.ncpu)
+          make install_sw
 
-      # Build libssh2 for arm64
+      - name: Download libssh2
+        run: |
+          curl -LO https://www.libssh2.org/download/libssh2-1.11.0.tar.gz
+          tar xzf libssh2-1.11.0.tar.gz
+          mv libssh2-1.11.0 libssh2
+
       - name: Build libssh2 arm64
         run: |
-          cd libssh2
-          mkdir -p build-arm64 && cd build-arm64
+          mkdir -p libssh2/build-arm64
+          cd libssh2/build-arm64
           cmake ../ \
             -DBUILD_SHARED_LIBS=OFF \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DOPENSSL_ROOT_DIR=../../openssl
-          cmake --build . --config Release
-          cd ../..
-          mkdir -p artifacts/arm64
-          cp libssh2/build-arm64/libssh2.a artifacts/arm64/
+            -DOPENSSL_ROOT_DIR=../../openssl-arm64 \
+            -DBUILD_TESTING=OFF \
+            -DENABLE_ZLIB_COMPRESSION=OFF
+          cmake --build . --config Release --target libssh2
+          mkdir -p ../../artifacts/arm64
+          cp src/libssh2.a ../../artifacts/arm64/
 
-      # Build libssh2 for x86_64
       - name: Build libssh2 x86_64
         run: |
-          cd libssh2
-          mkdir -p build-x86_64 && cd build-x86_64
-          cmake ../ \
+          mkdir -p libssh2/build-x86_64
+          cd libssh2/build-x86_64
+          arch -x86_64 cmake ../ \
             -DBUILD_SHARED_LIBS=OFF \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DOPENSSL_ROOT_DIR=../../openssl
-          cmake --build . --config Release
-          cd ../..
-          mkdir -p artifacts/x86_64
-          cp libssh2/build-x86_64/libssh2.a artifacts/x86_64/
+            -DOPENSSL_ROOT_DIR=../../openssl-x86_64 \
+            -DBUILD_TESTING=OFF \
+            -DENABLE_ZLIB_COMPRESSION=OFF
+          cmake --build . --config Release --target libssh2
+          mkdir -p ../../artifacts/x86_64
+          cp src/libssh2.a ../../artifacts/x86_64/
 
-      # Create universal (fat) lib
-      - name: Create universal libssh2.a
+      - name: Create universal libssh2
         run: |
           mkdir -p artifacts/universal
           lipo -create \
@@ -66,8 +82,7 @@ jobs:
             artifacts/x86_64/libssh2.a \
             -output artifacts/universal/libssh2.a
 
-      # Upload artifacts for later use
-      - name: Upload libssh2 artifacts
+      - name: Upload universal libssh2
         uses: actions/upload-artifact@v4
         with:
           name: libssh2-universal

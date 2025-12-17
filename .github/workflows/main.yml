@@ -35,8 +35,8 @@ jobs:
       - name: Build universal libssh2
         working-directory: Libssh2Prebuild
         run: |
-          chmod +x build-macos.sh
-          ./build-macos.sh
+          chmod +x build-libssh2.sh
+          ./build-libssh2.sh
 
       # 5. Upload universal libssh2 and headers as artifacts
       - name: Upload artifacts

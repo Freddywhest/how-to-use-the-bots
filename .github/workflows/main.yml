@@ -1,89 +1,96 @@
-name: Build libssh2 Universal Library
+name: Build libssh2 for macOS
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches:
+      - main
+  pull_request:
 
 jobs:
   build:
     runs-on: macos-latest
     env:
-      OPENSSL_VERSION: 3.2.0
+      OPENSSL_VERSION: "3.3.9"
+      LIBSSH2_VERSION: "1.11.0"
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
-          brew update
-          brew install cmake pkg-config
+          brew install cmake ninja
 
-      - name: Download and build OpenSSL for arm64
+      - name: Set up build directories
         run: |
-          mkdir -p openssl-arm64
+          mkdir -p build-arm64 build-x86_64 openssl-arm64 openssl-x86_64
+
+      ###########################################
+      # Build OpenSSL for arm64
+      ###########################################
+      - name: Build OpenSSL arm64
+        run: |
           curl -LO https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
           tar xzf openssl-${OPENSSL_VERSION}.tar.gz
           cd openssl-${OPENSSL_VERSION}
-          ./Configure darwin64-arm64-cc no-shared no-dso no-tests --prefix=$(pwd)/../openssl-arm64
+          ./Configure darwin64-arm64-cc no-shared no-dso no-tests no-ssl2 no-ssl3 no-comp --prefix=$(pwd)/../../openssl-arm64
+          make -j$(sysctl -n hw.ncpu)
+          make install_sw
+          cd ..
+
+      ###########################################
+      # Build OpenSSL for x86_64
+      ###########################################
+      - name: Build OpenSSL x86_64
+        run: |
+          arch -x86_64 ./Configure darwin64-x86_64-cc no-shared no-dso no-tests no-ssl2 no-ssl3 no-comp --prefix=$(pwd)/openssl-x86_64
           make -j$(sysctl -n hw.ncpu)
           make install_sw
 
-      - name: Download and build OpenSSL for x86_64
-        run: |
-          mkdir -p openssl-x86_64
-          curl -LO https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
-          tar xzf openssl-${OPENSSL_VERSION}.tar.gz
-          cd openssl-${OPENSSL_VERSION}
-          arch -x86_64 ./Configure darwin64-x86_64-cc no-shared no-dso no-tests --prefix=$(pwd)/../openssl-x86_64
-          make -j$(sysctl -n hw.ncpu)
-          make install_sw
-
-      - name: Download libssh2
-        run: |
-          curl -LO https://www.libssh2.org/download/libssh2-1.11.0.tar.gz
-          tar xzf libssh2-1.11.0.tar.gz
-          mv libssh2-1.11.0 libssh2
-
+      ###########################################
+      # Build libssh2 for arm64
+      ###########################################
       - name: Build libssh2 arm64
         run: |
-          mkdir -p libssh2/build-arm64
-          cd libssh2/build-arm64
+          curl -LO https://www.libssh2.org/download/libssh2-${LIBSSH2_VERSION}.tar.gz
+          tar xzf libssh2-${LIBSSH2_VERSION}.tar.gz
+          cd libssh2-${LIBSSH2_VERSION}
+          mkdir -p build-arm64 && cd build-arm64
           cmake ../ \
             -DBUILD_SHARED_LIBS=OFF \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DOPENSSL_ROOT_DIR=../../openssl-arm64 \
-            -DBUILD_TESTING=OFF \
-            -DENABLE_ZLIB_COMPRESSION=OFF
-          cmake --build . --config Release --target libssh2
-          mkdir -p ../../artifacts/arm64
-          cp src/libssh2.a ../../artifacts/arm64/
+            -DOPENSSL_ROOT_DIR=../../openssl-arm64
+          cmake --build . --config Release
+          cd ../..
 
+      ###########################################
+      # Build libssh2 for x86_64
+      ###########################################
       - name: Build libssh2 x86_64
         run: |
-          mkdir -p libssh2/build-x86_64
-          cd libssh2/build-x86_64
+          cd libssh2-${LIBSSH2_VERSION}
+          mkdir -p build-x86_64 && cd build-x86_64
           arch -x86_64 cmake ../ \
             -DBUILD_SHARED_LIBS=OFF \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DOPENSSL_ROOT_DIR=../../openssl-x86_64 \
-            -DBUILD_TESTING=OFF \
-            -DENABLE_ZLIB_COMPRESSION=OFF
-          cmake --build . --config Release --target libssh2
-          mkdir -p ../../artifacts/x86_64
-          cp src/libssh2.a ../../artifacts/x86_64/
+            -DOPENSSL_ROOT_DIR=../../openssl-x86_64
+          arch -x86_64 cmake --build . --config Release
+          cd ../..
 
+      ###########################################
+      # Create universal libssh2
+      ###########################################
       - name: Create universal libssh2
         run: |
-          mkdir -p artifacts/universal
+          mkdir -p universal
           lipo -create \
-            artifacts/arm64/libssh2.a \
-            artifacts/x86_64/libssh2.a \
-            -output artifacts/universal/libssh2.a
+            libssh2-${LIBSSH2_VERSION}/build-arm64/libssh2.a \
+            libssh2-${LIBSSH2_VERSION}/build-x86_64/libssh2.a \
+            -output universal/libssh2.a
+          cp -R libssh2-${LIBSSH2_VERSION}/include universal/
 
-      - name: Upload universal libssh2
+      - name: Upload universal build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: libssh2-universal
-          path: artifacts/universal/libssh2.a
+          path: universal

@@ -1,35 +1,74 @@
-name: Build libssh2 Universal
+name: Build libssh2 for RNSSHClient
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  build-x86_64:
+  build-macos:
     runs-on: macos-latest
+    env:
+      OPENSSL_VERSION: 3.2.0
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Install Homebrew
+      # Download and extract OpenSSL
+      - name: Download OpenSSL
         run: |
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          curl -LO https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz
+          tar xzf openssl-${OPENSSL_VERSION}.tar.gz
+          mv openssl-${OPENSSL_VERSION} openssl
 
-      - name: Install dependencies
+      # Clone libssh2
+      - name: Clone libssh2
         run: |
-          brew install openssl@3 cmake
+          git clone https://github.com/libssh2/libssh2.git
+          cd libssh2
 
-      - name: Build libssh2 for x86_64
+      # Build libssh2 for arm64
+      - name: Build libssh2 arm64
         run: |
+          cd libssh2
+          mkdir -p build-arm64 && cd build-arm64
+          cmake ../ \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DOPENSSL_ROOT_DIR=../../openssl
+          cmake --build . --config Release
+          cd ../..
+          mkdir -p artifacts/arm64
+          cp libssh2/build-arm64/libssh2.a artifacts/arm64/
+
+      # Build libssh2 for x86_64
+      - name: Build libssh2 x86_64
+        run: |
+          cd libssh2
           mkdir -p build-x86_64 && cd build-x86_64
           cmake ../ \
             -DBUILD_SHARED_LIBS=OFF \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
+            -DOPENSSL_ROOT_DIR=../../openssl
           cmake --build . --config Release
+          cd ../..
+          mkdir -p artifacts/x86_64
+          cp libssh2/build-x86_64/libssh2.a artifacts/x86_64/
 
-      - name: Archive
+      # Create universal (fat) lib
+      - name: Create universal libssh2.a
+        run: |
+          mkdir -p artifacts/universal
+          lipo -create \
+            artifacts/arm64/libssh2.a \
+            artifacts/x86_64/libssh2.a \
+            -output artifacts/universal/libssh2.a
+
+      # Upload artifacts for later use
+      - name: Upload libssh2 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: libssh2-x86_64
-          path: build-x86_64/src/libssh2.a
+          name: libssh2-universal
+          path: artifacts/universal/libssh2.a

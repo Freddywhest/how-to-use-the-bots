@@ -1,9 +1,8 @@
-name: Build libssh2 for macOS
+name: Build libssh2 Universal macOS
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
 
 jobs:
@@ -21,39 +20,40 @@ jobs:
         run: |
           brew install cmake ninja
 
-      - name: Set up build directories
+      - name: Create build directories
         run: |
           mkdir -p build-arm64 build-x86_64 openssl-arm64 openssl-x86_64
 
       ###########################################
-      # Build OpenSSL for arm64
+      # Build OpenSSL for ARM64
       ###########################################
       - name: Build OpenSSL arm64
         run: |
           curl -LO https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz
           tar xzf openssl-${OPENSSL_VERSION}.tar.gz
           cd openssl-${OPENSSL_VERSION}
-          ./Configure darwin64-arm64-cc no-shared no-dso no-tests no-ssl2 no-ssl3 no-comp --prefix=$(pwd)/../../openssl-arm64
-          make -j$(sysctl -n hw.ncpu)
-          make install_sw
+          chmod +x Configure
+          ./Configure darwin64-arm64-cc \
+            no-shared no-dso no-tests no-ssl2 no-ssl3 no-comp \
+            --prefix=$(pwd)/../../openssl-arm64
+          make -j$(sysctl -n hw.ncpu) install_sw
           cd ..
 
-       ###########################################
+      ###########################################
       # Build OpenSSL for x86_64
       ###########################################
       - name: Build OpenSSL x86_64
         run: |
-          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz
-          tar xzf openssl-${OPENSSL_VERSION}.tar.gz
           cd openssl-${OPENSSL_VERSION}
           chmod +x Configure
-          arch -x86_64 ./Configure darwin64-x86_64-cc no-shared no-dso no-tests no-ssl2 no-ssl3 no-comp --prefix=$(pwd)/../../openssl-x86_64
-          make -j$(sysctl -n hw.ncpu)
-          make install_sw
+          arch -x86_64 ./Configure darwin64-x86_64-cc \
+            no-shared no-dso no-tests no-ssl2 no-ssl3 no-comp \
+            --prefix=$(pwd)/../../openssl-x86_64
+          arch -x86_64 make -j$(sysctl -n hw.ncpu) install_sw
           cd ..
 
       ###########################################
-      # Build libssh2 for arm64
+      # Build libssh2 for ARM64
       ###########################################
       - name: Build libssh2 arm64
         run: |
@@ -94,7 +94,10 @@ jobs:
             -output universal/libssh2.a
           cp -R libssh2-${LIBSSH2_VERSION}/include universal/
 
-      - name: Upload universal build artifacts
+      ###########################################
+      # Upload artifacts
+      ###########################################
+      - name: Upload universal libssh2
         uses: actions/upload-artifact@v4
         with:
           name: libssh2-universal

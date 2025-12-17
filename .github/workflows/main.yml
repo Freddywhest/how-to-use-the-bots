@@ -10,7 +10,7 @@ jobs:
     runs-on: macos-latest
     env:
       OPENSSL_VERSION: "3.3.5"
-      LIBSSH2_VERSION: "1.11.0"
+      LIBSSH2_VERSION: "1.11.1"
 
     steps:
       - name: Checkout repo
@@ -58,7 +58,7 @@ jobs:
       ###########################################
       - name: Build libssh2 arm64
         run: |
-          curl -LO https://www.libssh2.org/download/libssh2-${LIBSSH2_VERSION}.tar.gz
+          curl -LO https://libssh2.org/download/libssh2-${LIBSSH2_VERSION}.tar.gz
           tar xzf libssh2-${LIBSSH2_VERSION}.tar.gz
           cd libssh2-${LIBSSH2_VERSION}
           mkdir -p build-arm64 && cd build-arm64

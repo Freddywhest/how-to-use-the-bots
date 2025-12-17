@@ -14,22 +14,29 @@ jobs:
       LIBSSH2_VERSION: "1.11.1"
 
     steps:
+      # 1. Checkout your repo
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # 2. Install required dependencies
       - name: Install dependencies
         run: |
           brew install cmake ninja perl
 
+      # 3. Clone Libssh2Prebuild repo
       - name: Download Libssh2Prebuild
         run: |
           git clone https://github.com/DimaRU/Libssh2Prebuild.git
           cd Libssh2Prebuild
           git checkout master
 
+      # 4. Build universal libssh2 (arm64 + x86_64)
       - name: Build universal libssh2
+        working-directory: Libssh2Prebuild
         run: |
           chmod +x script/*.sh
+
+          # Environment variables required by the build scripts
           export ROOT_PATH=$(pwd)
           export LIBSSH_SOURCE=$(pwd)/libssh2-${LIBSSH2_VERSION}
           export BUILT_PRODUCTS_DIR=$(pwd)/build/macos/universal
@@ -39,9 +46,13 @@ jobs:
           export SDK_PLATFORM="macosx"
           export MIN_VERSION="12.0"
           export BUILD_THREADS=$(sysctl -n hw.ncpu)
+
           mkdir -p $BUILT_PRODUCTS_DIR
+
+          # Run the build script
           script/build-libssh2.sh
 
+      # 5. Upload universal libssh2 artifacts
       - name: Upload universal libssh2 artifacts
         uses: actions/upload-artifact@v4
         with:
